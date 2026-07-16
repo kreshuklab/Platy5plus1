@@ -1,0 +1,22 @@
+name: platymatch_env
+
+channels:
+  - conda-forge
+  - nodefaults
+
+dependencies:
+  - python>=3.8
+  # - z5py
+  - scikit-image
+  - matplotlib
+  - seaborn
+  - pandas
+  - pip
+  - ome-zarr==0.14.0
+  - napari==0.7.0
+  - ipykernel
+  - tqdm
+  - pyqt
+
+  - git
+  - vim
