@@ -39,9 +39,10 @@ def main():
         print("Nuclei segmentation shape", nuclei_segm.shape)
         print("Cell segmentation shape", cell_segm.shape)
 
+        # Assign GT
         reg_gt = pd.read_csv("match_gt.csv")
         gt_column = f"stmhc_pl{i}"
-        gt_dict = pd.Series(reg_gt.em_id.values, index=reg_gt[gt_column]).to_dict()
+        gt_dict = pd.Series(reg_gt.idx.values, index=reg_gt[gt_column]).to_dict()
         print(reg_gt)
         props = pd.DataFrame(
             regionprops_table(
@@ -50,7 +51,6 @@ def main():
                 properties=("label", "centroid", "intensity_mean"),
             )
         )
-        print(props)
         props = props.rename(
             {
                 "centroid-0": "z",
@@ -63,49 +63,59 @@ def main():
         props["reg_gt"] = [
             gt_dict[idx] if idx in gt_dict.keys() else -1 for idx in props["label"]
         ]
+
+        # Assign reflected GT
+        reg_gt = pd.read_csv("match_gt_reflected.csv")
+        gt_column = f"stmhc_pl{i}"
+        gt_dict = pd.Series(reg_gt.idx.values, index=reg_gt[gt_column]).to_dict()
+        print(reg_gt)
+        props["reg_gt_reflected"] = [
+            gt_dict[idx] if idx in gt_dict.keys() else -1 for idx in props["label"]
+        ]
+
         print(props)
         props.to_csv(output_dir / f"stmhc_{sample_name}.csv", index=False)
         print(output_dir / f"stmhc_{sample_name}.csv")
 
-        gt_segm = np.zeros_like(nuclei_segm)
-        for idx, gt_idx in gt_dict.items():
-            gt_segm[nuclei_segm == idx] = gt_idx
+        # gt_segm = np.zeros_like(nuclei_segm)
+        # for idx, gt_idx in gt_dict.items():
+        #     gt_segm[nuclei_segm == idx] = gt_idx
 
-        store = parse_url(output_path, mode="w").store
+        # store = parse_url(output_path, mode="w").store
 
-        axes = [
-            dict(name="z", type="space", unit="micrometer"),
-            dict(name="y", type="space", unit="micrometer"),
-            dict(name="x", type="space", unit="micrometer"),
-        ]
-        coordinate_transforms = [
-            [{"scale": resolution, "type": "scale"}],
-        ]
-        storage_options = dict(
-            chunks=(256, 256, 256),  # Output chunk size
-            compressors=BloscCodec(
-                cname="blosclz"
-            ),  # Compressor to be used, choose one: ['blosclz', 'lz4', 'lz4hc', 'zlib', 'zstd']
-            overwrite=True,  # Overwrite existing data if any
-        )
+        # axes = [
+        #     dict(name="z", type="space", unit="micrometer"),
+        #     dict(name="y", type="space", unit="micrometer"),
+        #     dict(name="x", type="space", unit="micrometer"),
+        # ]
+        # coordinate_transforms = [
+        #     [{"scale": resolution, "type": "scale"}],
+        # ]
+        # storage_options = dict(
+        #     chunks=(256, 256, 256),  # Output chunk size
+        #     compressors=BloscCodec(
+        #         cname="blosclz"
+        #     ),  # Compressor to be used, choose one: ['blosclz', 'lz4', 'lz4hc', 'zlib', 'zstd']
+        #     overwrite=True,  # Overwrite existing data if any
+        # )
 
-        label_name = "reg_gt"
-        labels_grp = zarr.open_group(output_path)["labels"]
+        # label_name = "reg_gt"
+        # labels_grp = zarr.open_group(output_path)["labels"]
         # label_grp = labels_grp["reg_gt"]
-        label_grp = labels_grp.create_group(label_name)
-        writer.write_image(
-            gt_segm,
-            label_grp,
-            axes=axes,
-            scale_factors=[],
-            coordinate_transformations=coordinate_transforms,
-            name=label_name,
-            storage_options=storage_options,
-            zarr_format=3,
-        )
-        # labels_list = ["foreground"]
-        # labels_grp.attrs["labels"] = labels_list
-        writer.write_label_metadata(labels_grp, "reg_gt")
+        # # label_grp = labels_grp.create_group(label_name)
+        # writer.write_image(
+        #     gt_segm,
+        #     label_grp,
+        #     axes=axes,
+        #     scale_factors=[],
+        #     coordinate_transformations=coordinate_transforms,
+        #     name=label_name,
+        #     storage_options=storage_options,
+        #     zarr_format=3,
+        # )
+        # # labels_list = ["foreground"]
+        # # labels_grp.attrs["labels"] = labels_list
+        # writer.write_label_metadata(labels_grp, "reg_gt")
 
 
 if __name__ == "__main__":
