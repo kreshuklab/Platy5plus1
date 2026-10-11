@@ -12,6 +12,7 @@ from skimage.transform import rescale
 import matplotlib.pyplot as plt
 from typing import List
 import pandas as pd
+from platy5p1.data import read_sample_images
 
 def bbox_3D(img, margin=10):
         if isinstance(margin, int):
@@ -77,95 +78,89 @@ def main():
     cell_segm_n5_key = "setup0/timepoint0/s2"
 
     muscle_segm_n5_path = f"/scratch/buglakova/data/platy5plus1/sbem-6dpf-1-whole-segmented-muscle.n5"
-    muscle_segm_n5_key = "setup0/timepoint0/s2"
+    muscle_segm_n5_key = "setup0/timepoint0/s0"
     muscle_res = [0.1, 0.1, 0.1]
 
     resolution = [0.129, 0.129, 0.129]
 
-    # Read raw EM
+    # # Read raw EM
 
-    f = z5py.File(raw_n5_path, "r")
-    ds = f[raw_n5_key]
-    roi = np.s_[:]
-    raw = ds[roi]
-    print(raw.shape)
-    plt.imshow(raw[raw.shape[0] // 2, :, :])
-    plt.savefig("em.png", dpi=300)
+    # f = z5py.File(raw_n5_path, "r")
+    # ds = f[raw_n5_key]
+    # roi = np.s_[:]
+    # raw = ds[roi]
+    # print(raw.shape)
+    # plt.imshow(raw[raw.shape[0] // 2, :, :])
+    # plt.savefig("em.png", dpi=300)
 
-    raw = prealign(raw, order=0)
-    bbox = bbox_3D(raw > 0, margin=10)
-    zmin, zmax, ymin, ymax, xmin, xmax = [int(coord) for coord in bbox]
-    raw = raw[zmin:zmax, ymin:ymax, xmin:xmax]
-
-    plt.imshow(raw[raw.shape[0] // 2, :, :])
-    plt.savefig("em_transformed.png", dpi=300)
-
-    # Read muscle segmentation
-    f = z5py.File(muscle_segm_n5_path, "r")
-    ds = f[muscle_segm_n5_key]
-    roi = np.s_[:]
-    muscle = ds[roi]
-    print(muscle.shape)
-    plt.imshow(muscle[muscle.shape[0] // 2, :, :])
-    plt.savefig("em_muscle.png", dpi=300)
-
-    muscle = prealign(muscle, order=0, cur_res=muscle_res)
-    zmin, zmax, ymin, ymax, xmin, xmax = [int(coord) for coord in bbox]
-    muscle = muscle[zmin:zmax, ymin:ymax, xmin:xmax]
-
-    plt.imshow(muscle[muscle.shape[0] // 2, :, :])
-    plt.savefig("em_muscle_transformed.png", dpi=300)
-
-
-    # Write raw EM
-
-    raw = np.stack([raw, muscle])
-
-    axes = [
-    dict(name = 'c', type = 'channel'),
-    dict(name = 'z', type = 'space', unit = 'micrometer'),
-    dict(name = 'y', type = 'space', unit = 'micrometer'),
-    dict(name = 'x', type = 'space', unit = 'micrometer'),
-    ]
+    # raw = prealign(raw, order=2)
+    # bbox = bbox_3D(raw > 0, margin=10)
+    # zmin, zmax, ymin, ymax, xmin, xmax = [int(coord) for coord in bbox]
+    # raw = raw[zmin:zmax, ymin:ymax, xmin:xmax]
     
+    # plt.imshow(raw[raw.shape[0] // 2, :, :])
+    # plt.savefig("em_transformed.png", dpi=300)
 
-    
+    # # Read muscle segmentation
+    # f = z5py.File(muscle_segm_n5_path, "r")
+    # ds = f[muscle_segm_n5_key]
+    # roi = np.s_[:]
+    # muscle = ds[roi]
+    # print(muscle.shape)
+    # plt.imshow(muscle[muscle.shape[0] // 2, :, :])
+    # plt.savefig("em_muscle.png", dpi=300)
+
+    # muscle = prealign(muscle, order=0, cur_res=muscle_res)
+    # muscle = muscle[zmin:zmax, ymin:ymax, xmin:xmax] / 255 # segmentation goes up to 255
+
+    # plt.imshow(muscle[muscle.shape[0] // 2, :, :])
+    # plt.savefig("em_muscle_transformed.png", dpi=300)
 
 
-    # Write raw EM and muscle segmentation
-    coordinate_transforms = [
-    [{'scale': [1, *resolution], 'type': 'scale'}],
-    ]
+    # # Write raw EM
+    # raw = np.stack([raw, muscle])
 
-    storage_options = dict(
-    chunks=(1, 256, 256, 256), # Output chunk size
-    compressors=BloscCodec(cname="blosclz"), # Compressor to be used, choose one: ['blosclz', 'lz4', 'lz4hc', 'zlib', 'zstd']
-    overwrite=True  # Overwrite existing data if any
-    )   
+    # axes = [
+    # dict(name = 'c', type = 'channel'),
+    # dict(name = 'z', type = 'space', unit = 'micrometer'),
+    # dict(name = 'y', type = 'space', unit = 'micrometer'),
+    # dict(name = 'x', type = 'space', unit = 'micrometer'),
+    # ]
 
-    store = parse_url(output_path, mode = 'w').store 
-    root = zarr.open_group(store)
+    # # Write raw EM and muscle segmentation
+    # coordinate_transforms = [
+    # [{'scale': [1, *resolution], 'type': 'scale'}],
+    # ]
 
-    writer.write_image(image = raw, # In this case, a numpy array
-                group = root,
-                axes = axes, # Dimensionality order
-                scale_factors = [],
-                coordinate_transformations = coordinate_transforms,
-                storage_options = storage_options, zarr_format=3
-                )
+    # storage_options = dict(
+    # chunks=(1, 256, 256, 256), # Output chunk size
+    # compressors=BloscCodec(cname="blosclz"), # Compressor to be used, choose one: ['blosclz', 'lz4', 'lz4hc', 'zlib', 'zstd']
+    # overwrite=True  # Overwrite existing data if any
+    # )   
 
-    root.attrs["omero"] = {
-        "channels": [{
-            "color": 'gray',
-            "label": "raw EM",
-            "active": True,
-        },
-        {
-            "color": 'yellow',
-            "label": "muscle",
-            "active": True,
-        }]
-    }
+    # store = parse_url(output_path, mode = 'w').store 
+    # root = zarr.open_group(store)
+
+    # writer.write_image(image = raw, # In this case, a numpy array
+    #             group = root,
+    #             axes = axes, # Dimensionality order
+    #             scale_factors = [],
+    #             coordinate_transformations = coordinate_transforms,
+    #             storage_options = storage_options, zarr_format=3
+    #             )
+
+    # root.attrs["omero"] = {
+    #     "channels": [{
+    #         "color": 'gray',
+    #         "label": "raw EM",
+    #         "active": True,
+    #     },
+    #     {
+    #         "color": 'yellow',
+    #         "label": "muscle",
+    #         "active": True,
+    #     }]
+    # }
 
 
 
@@ -209,40 +204,81 @@ def main():
     # writer.write_label_metadata(labels_grp, "nuclei_segmentation")
 
 
-    # Read cell segmentation 
-    f = z5py.File(cell_segm_n5_path, "r")
-    ds = f[cell_segm_n5_key]
-    roi = np.s_[:]
-    cell_segm = ds[roi]
-    print(cell_segm.shape)
-    plt.imshow(cell_segm[cell_segm.shape[0] // 2, :, :])
-    plt.savefig("em_cell_segm.png", dpi=300)
+    # # Read cell segmentation 
+    # f = z5py.File(cell_segm_n5_path, "r")
+    # ds = f[cell_segm_n5_key]
+    # roi = np.s_[:]
+    # cell_segm = ds[roi]
+    # print(cell_segm.shape)
+    # plt.imshow(cell_segm[cell_segm.shape[0] // 2, :, :])
+    # plt.savefig("em_cell_segm.png", dpi=300)
 
-    cell_segm = prealign(cell_segm, order=0)
-    cell_segm = cell_segm[zmin:zmax, ymin:ymax, xmin:xmax]
+    # cell_segm = prealign(cell_segm, order=0)
+    # cell_segm = cell_segm[zmin:zmax, ymin:ymax, xmin:xmax]
 
-    plt.imshow(cell_segm[cell_segm.shape[0] // 2, :, :])
-    plt.savefig("em_cell_segm_transformed.png", dpi=300)
+    # plt.imshow(cell_segm[cell_segm.shape[0] // 2, :, :])
+    # plt.savefig("em_cell_segm_transformed.png", dpi=300)
 
 
-    # Write cell segmentation   
+    # # Write cell segmentation   
 
-    segm_n5_key = "segmentation/cell_regions"
-    f = z5py.File(segm_n5_path, "r")
-    ds = f[segm_n5_key]
-    roi = np.s_[:]
-    cell_segm = ds[roi]
-    cell_segm = resize(cell_segm,  nuclei_segm.shape, order=0, anti_aliasing=False)
+    # label_name = "cell_segmentation"
+    # label_grp = labels_grp.create_group(label_name)
+    # writer.write_image(cell_segm , label_grp, axes=axes, scale_factors=[], coordinate_transformations = coordinate_transforms, name=label_name,  storage_options = storage_options, zarr_format=3)
+    # writer.write_label_metadata(labels_grp, "cell_segmentation")
 
-    label_name = "cell_segmentation"
+    # reader = Reader(parse_url(output_path))
+    # nodes = list(reader())
+    # for idx, node in enumerate(nodes):
+    #     print(f"The node at the level {idx} is {node}")
+
+    sample_images, resolution = read_sample_images(output_dir, "em")
+
+    nuclei_segm = sample_images["nuclei_segm"]
+
+    # Create registration ground truth volume
+    reg_gt = pd.read_csv("data/match_gt.csv")
+    gt_column = f"em"
+    gt_dict = pd.Series(reg_gt.idx.values, index=reg_gt[gt_column]).to_dict()
+
+    gt_segm = np.zeros_like(nuclei_segm)
+    for idx, gt_idx in gt_dict.items():
+        gt_segm[nuclei_segm == idx] = gt_idx
+
+    store = parse_url(output_path, mode="w").store
+
+    axes = [
+        dict(name="z", type="space", unit="micrometer"),
+        dict(name="y", type="space", unit="micrometer"),
+        dict(name="x", type="space", unit="micrometer"),
+    ]
+    coordinate_transforms = [
+        [{"scale": resolution, "type": "scale"}],
+    ]
+    storage_options = dict(
+        chunks=(256, 256, 256),  # Output chunk size
+        compressors=BloscCodec(
+            cname="blosclz"
+        ),  # Compressor to be used, choose one: ['blosclz', 'lz4', 'lz4hc', 'zlib', 'zstd']
+        overwrite=True,  # Overwrite existing data if any
+    )
+
+    label_name = "reg_gt"
+    labels_grp = zarr.open_group(output_path)["labels"]
+    # label_grp = labels_grp["reg_gt"]
     label_grp = labels_grp.create_group(label_name)
-    writer.write_image(cell_segm , label_grp, axes=axes, scale_factors=[], coordinate_transformations = coordinate_transforms, name=label_name,  storage_options = storage_options, zarr_format=3)
-    writer.write_label_metadata(labels_grp, "cell_segmentation")
+    writer.write_image(
+        gt_segm,
+        label_grp,
+        axes=axes,
+        scale_factors=[],
+        coordinate_transformations=coordinate_transforms,
+        name=label_name,
+        storage_options=storage_options,
+        zarr_format=3,
+    )
 
-    reader = Reader(parse_url(output_path))
-    nodes = list(reader())
-    for idx, node in enumerate(nodes):
-        print(f"The node at the level {idx} is {node}")
+    writer.write_label_metadata(labels_grp, "reg_gt")
 
 
 if __name__ == "__main__":
