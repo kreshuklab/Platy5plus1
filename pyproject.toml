@@ -1,0 +1,10 @@
+[project]
+name = "platy5p1"
+version = "1.0.0"
+description = "Benchmark dataset for biological image registration and object matching"
+requires-python = ">=3.8"
+
+
+[build-system]
+requires = ["flit_core<4"]
+build-backend = "flit_core.buildapi"
